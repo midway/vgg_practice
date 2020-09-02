@@ -79,7 +79,6 @@ class VggNet(nn.Module):
         for x in architectures:
             if type(x) == int:
                 out_channels = x
-                print(in_channels, out_channels)
                 # create the convolution layers with input and
                 # output channel counts matching our current needs
                 # along with a stride and padding as defined in the paper
@@ -90,6 +89,7 @@ class VggNet(nn.Module):
                                      kernel_size=conv_kernel_size,
                                      stride=conv_stride,
                                      padding=conv_padding),
+                           nn.BatchNorm2d(x),
                            nn.ReLU()]
 
                 # the input channels for the next layer need to match the output channel
