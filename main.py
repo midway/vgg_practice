@@ -54,6 +54,8 @@ if args.train:
 
         batch_size = 4
         epochs = 3
+        if args.epochs:
+            epochs = args.epochs
         if args.train and not os.path.isfile(args.train):
             if not args.vgg_type:
                 print("-N/--vgg-type is required when training without an existing checkpoint")
@@ -88,8 +90,6 @@ if args.train:
                 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
                 if args.batch_size:
                     batch_size = args.batch_size
-                if args.epochs:
-                    epochs = args.epochs
 
             trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                                     download=True, transform=transform)
