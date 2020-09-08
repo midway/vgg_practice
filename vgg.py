@@ -29,6 +29,9 @@ class VggNet(nn.Module):
         self.in_channels = in_channels
         self.convolution_layers = self.create_conv_layers(VGG[vgg_type])
 
+        self.max_pool = nn.MaxPool2d(kernel_size=max_pool_kernel_size, stride=max_pool_stride)
+        self.gradients = None
+
         self.fully_connected_layers = nn.Sequential(
 
             # 512 because 512 is the number of outputs of the last
@@ -58,10 +61,19 @@ class VggNet(nn.Module):
             nn.Linear(4096, num_classes),
         )
 
+    def activations_hook(self, grad):
+        self.gradients = grad
+
     def forward(self, x):
         # call the convolution layers
         # "shape after convolution layers should be 1 x 3 x 244 x 244
         x = self.convolution_layers(x)
+
+        # register the hook
+        h = x.register_hook(self.activations_hook)
+
+        x = self.max_pool(x)
+
         # reshape the convolutional layers into a linear structure (1 dimension) for
         # processing by the nn.Sequential code
         x = x.reshape(x.shape[0], -1)
@@ -69,6 +81,14 @@ class VggNet(nn.Module):
         # call our fully connected layer code with the newly reshaped x
         x = self.fully_connected_layers(x)
         return x
+
+    # method for the gradient extraction
+    def get_activations_gradient(self):
+        return self.gradients
+
+    # method for the activation exctraction
+    def get_activations(self, x):
+        return self.convolution_layers(x)
 
     def create_conv_layers(self, architectures):
         layers = []
@@ -89,7 +109,7 @@ class VggNet(nn.Module):
                                      kernel_size=conv_kernel_size,
                                      stride=conv_stride,
                                      padding=conv_padding),
-                           nn.BatchNorm2d(x),
+                           # nn.BatchNorm2d(x),
                            nn.ReLU()]
 
                 # the input channels for the next layer need to match the output channel
@@ -97,7 +117,10 @@ class VggNet(nn.Module):
                 in_channels = x
             elif x == 'M':
                 layers += [nn.MaxPool2d(kernel_size=max_pool_kernel_size, stride=max_pool_stride)]
-        return nn.Sequential(*layers)
+        sequential = nn.Sequential(*(layers[:-1]))
+        for _ in sequential.parameters():
+            _.requires_grad_(True)
+        return sequential.requires_grad_(True)
 
 
 #model = VggNet(in_channels=3, num_classes=1000, size=32)

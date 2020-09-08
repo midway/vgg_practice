@@ -4,12 +4,16 @@ import os
 
 import torch
 import torchvision
+import torch.autograd
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
 from barbar import Bar
 from datetime import datetime
 from vgg import VggNet
+import matplotlib.pyplot as plt
+import numpy as np
+import cv2
 
 def check_positive_integer(value):
     value = int(value)
@@ -153,13 +157,13 @@ if args.train:
             net.eval()
             correct = 0
             total = 0
-            with torch.no_grad():
-                for i, data in enumerate(Bar(validation_loader)):
-                    images, labels = data[0].to(device), data[1].to(device)
-                    outputs = net(images)
-                    _, predicted = torch.max(outputs.data, 1)
-                    total += labels.size(0)
-                    correct += (predicted == labels).sum().item()
+
+            for i, data in enumerate(Bar(validation_loader)):
+                images, labels = data[0].to(device), data[1].to(device)
+                outputs = net(images)
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
             accuracy = 100 * correct / total
             print('Accuracy of the network on the 7500 validation images: %d %%' % accuracy)
@@ -207,29 +211,76 @@ if args.execute:
         net.eval()
         correct = 0
         total = 0
-        with torch.no_grad():
-            for i, data in enumerate(Bar(testloader)):
-                images, labels = data[0].to(device), data[1].to(device)
-                outputs = net(images)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
+
+        # GRADCAM
+
+        img, _ = next(iter(testloader))
+
+        # get the most likely prediction of the model
+        pred = net(img)
+        print(pred)
+        predMax = pred.argmax(dim=1)
+        print(predMax)
+
+        # get the gradient of the output with respect to the parameters of the model
+        pred[:, predMax].backward()
+
+        # pull the gradients out of the model
+        gradients = net.get_activations_gradient()
+
+        # pool the gradients across the channels
+        pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
+
+        # get the activations of the last convolutional layer
+        activations = net.get_activations(img).detach()
+
+        # weight the channels by corresponding gradients
+        for i in range(512):
+            activations[:, i, :, :] *= pooled_gradients[i]
+
+        # average the channels of the activations
+        heatmap = torch.mean(activations, dim=1).squeeze()
+
+        # relu on top of the heatmap
+        # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
+        heatmap = np.maximum(heatmap, 0)
+
+        # normalize the heatmap
+        heatmap /= torch.max(heatmap)
+
+        # draw the heatmap
+        plt.matshow(heatmap.squeeze())
+        plt.show()
+
+        img = torchvision.utils.make_grid(img)
+        img = img / 2 + 0.5  # unnormalize
+        npimg = img.numpy()
+        plt.imshow(np.transpose(npimg, (1, 2, 0)))
+        plt.show()
+        exit()
+        # /GRADCAM
+
+        for i, data in enumerate(Bar(testloader)):
+            images, labels = data[0].to(device), data[1].to(device)
+            outputs = net(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
         print('Accuracy of the network on the 10000 test images: %d %%' % (
             100 * correct / total))
 
         class_correct = list(0. for i in range(10))
         class_total = list(0. for i in range(10))
-        with torch.no_grad():
-            for i, data in enumerate(Bar(testloader)):
-                images, labels = data[0].to(device), data[1].to(device)
-                outputs = net(images)
-                _, predicted = torch.max(outputs, 1)
-                c = (predicted == labels).squeeze()
-                for i in range(4):
-                    label = labels[i]
-                    class_correct[label] += c[i].item()
-                    class_total[label] += 1
+        for i, data in enumerate(Bar(testloader)):
+            images, labels = data[0].to(device), data[1].to(device)
+            outputs = net(images)
+            _, predicted = torch.max(outputs, 1)
+            c = (predicted == labels).squeeze()
+            for i in range(4):
+                label = labels[i]
+                class_correct[label] += c[i].item()
+                class_total[label] += 1
 
         for i in range(10):
             print('Accuracy of %5s : %2d %%' % (
