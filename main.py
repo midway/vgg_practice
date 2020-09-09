@@ -203,7 +203,7 @@ if args.execute:
 
         testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                                download=True, transform=transform)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+        testloader = torch.utils.data.DataLoader(testset, batch_size=1,
                                                  shuffle=False, num_workers=4)
 
         net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type']).to(device)
@@ -252,11 +252,13 @@ if args.execute:
         plt.matshow(heatmap.squeeze())
         plt.show()
 
-        img = torchvision.utils.make_grid(img)
-        img = img / 2 + 0.5  # unnormalize
-        npimg = img.numpy()
-        plt.imshow(np.transpose(npimg, (1, 2, 0)))
-        plt.show()
+        newImage = cv2.imread('./data/cifar-10-example.png')
+        heatmap = cv2.resize(np.array(heatmap), (newImage.shape[1], newImage.shape[0]))
+        heatmap = np.uint8(255 * heatmap)
+        heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+        superimposed_img = heatmap * .9 + newImage
+        cv2.imwrite('./heatmap.jpg', heatmap)
+        cv2.imwrite('./combined.jpg', superimposed_img)
         exit()
         # /GRADCAM
 
