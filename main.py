@@ -14,6 +14,7 @@ from vgg import VggNet
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+from PIL import Image
 
 def check_positive_integer(value):
     value = int(value)
@@ -43,7 +44,8 @@ if args.cpu:
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+     #transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+     ])
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
@@ -79,7 +81,7 @@ if args.train:
             if os.path.isfile(args.train):
                 input_file = torch.load(args.train)
                 batch_size = input_file['batch_size']
-                net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type']).to(device)
+                net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
                 net.load_state_dict(input_file['state_dict'])
                 net.train()
                 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
@@ -89,7 +91,7 @@ if args.train:
                     print('Batch size for this model has already been set to ', batch_size, 'and will not be changed.')
             else:
                 start_epoch = 0
-                net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=args.vgg_type).to(device)
+                net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=args.vgg_type, device=device).to(device)
                 net.train()
                 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
                 if args.batch_size:
@@ -204,9 +206,9 @@ if args.execute:
         testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                                download=True, transform=transform)
         testloader = torch.utils.data.DataLoader(testset, batch_size=1,
-                                                 shuffle=False, num_workers=4)
+                                                 shuffle=True, num_workers=4)
 
-        net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type']).to(device)
+        net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
         net.load_state_dict(input_file['state_dict'])
         net.eval()
         correct = 0
@@ -217,13 +219,14 @@ if args.execute:
         img, _ = next(iter(testloader))
 
         # get the most likely prediction of the model
-        pred = net(img)
+        pred = net(img).to(device)
         print(pred)
         predMax = pred.argmax(dim=1)
         print(predMax)
 
         # get the gradient of the output with respect to the parameters of the model
         pred[:, predMax].backward()
+        print('Model thinks this is a', classes[predMax])
 
         # pull the gradients out of the model
         gradients = net.get_activations_gradient()
@@ -243,22 +246,24 @@ if args.execute:
 
         # relu on top of the heatmap
         # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
-        heatmap = np.maximum(heatmap, 0)
+        heatmap = np.maximum(heatmap.cpu(), 0)
 
         # normalize the heatmap
         heatmap /= torch.max(heatmap)
 
         # draw the heatmap
         plt.matshow(heatmap.squeeze())
+        plt.imsave("./data/heatmap-plot.png", heatmap.squeeze())
         plt.show()
 
+        torchvision.utils.save_image(img[0],'./data/cifar-10-example.png')
         newImage = cv2.imread('./data/cifar-10-example.png')
         heatmap = cv2.resize(np.array(heatmap), (newImage.shape[1], newImage.shape[0]))
         heatmap = np.uint8(255 * heatmap)
         heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-        superimposed_img = heatmap * .9 + newImage
-        cv2.imwrite('./heatmap.jpg', heatmap)
-        cv2.imwrite('./combined.jpg', superimposed_img)
+        superimposed_img = heatmap * .4 + newImage
+        cv2.imwrite('./data/heatmap.jpg', heatmap)
+        cv2.imwrite('./data/combined.jpg', superimposed_img)
         exit()
         # /GRADCAM
 

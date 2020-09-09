@@ -24,8 +24,9 @@ max_pool_stride = (2, 2)
 
 
 class VggNet(nn.Module):
-    def __init__(self, in_channels=3, num_classes=1000, size=224, vgg_type='VGG16'):
+    def __init__(self, in_channels=3, num_classes=1000, size=224, vgg_type='VGG16', device='cuda'):
         super(VggNet, self).__init__()
+        self.device = device
         self.in_channels = in_channels
         self.convolution_layers = self.create_conv_layers(VGG[vgg_type])
 
@@ -67,7 +68,7 @@ class VggNet(nn.Module):
     def forward(self, x):
         # call the convolution layers
         # "shape after convolution layers should be 1 x 3 x 244 x 244
-        x = self.convolution_layers(x)
+        x = self.convolution_layers(x.to(self.device))
 
         # register the hook
         h = x.register_hook(self.activations_hook)
@@ -88,7 +89,7 @@ class VggNet(nn.Module):
 
     # method for the activation exctraction
     def get_activations(self, x):
-        return self.convolution_layers(x)
+        return self.convolution_layers(x.to(self.device))
 
     def create_conv_layers(self, architectures):
         layers = []
@@ -109,7 +110,7 @@ class VggNet(nn.Module):
                                      kernel_size=conv_kernel_size,
                                      stride=conv_stride,
                                      padding=conv_padding),
-                           # nn.BatchNorm2d(x),
+                           nn.BatchNorm2d(x),
                            nn.ReLU()]
 
                 # the input channels for the next layer need to match the output channel
