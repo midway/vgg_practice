@@ -34,7 +34,7 @@ parser.add_argument('-E', '--epochs X', help='Train the model using X epochs (de
 parser.add_argument('-X', '--execute FILE', help='Execute an existing .pth file on CIFAR-10 data set.', dest='execute')
 parser.add_argument('-N', '--vgg-type TYPE', help='VGG type.  Valid values are VGG11 and VGG16.',dest='vgg_type')
 parser.add_argument('-C', '--cpu', help='Force to run only on CPU.', action='store_true')
-parser.add_argument('-B', '--batch-size', help='Batch size used for training.  (default: 4)', dest='batch_size')
+parser.add_argument('-B', '--batch-size', help='Batch size used for training.  (default: 4)', dest='batch_size', type=check_positive_integer)
 parser.add_argument('-S', '--competition-size X', help='Train X models and save only the best performing one (least loss)', dest='competition_size', type=check_positive_integer)
 args = parser.parse_args()
 
@@ -83,6 +83,9 @@ if args.train:
                 batch_size = input_file['batch_size']
                 net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
                 net.load_state_dict(input_file['state_dict'])
+                if torch.cuda.device_count() > 1:
+                    print('Attempting to use', torch.cuda.device_count(),'GPUs')
+                    net = nn.DataParallel(net).to(device)
                 net.train()
                 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
                 optimizer.load_state_dict(input_file['optimizer'])
@@ -92,6 +95,9 @@ if args.train:
             else:
                 start_epoch = 0
                 net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=args.vgg_type, device=device).to(device)
+                if torch.cuda.device_count() > 1:
+                    print('Attempting to use', torch.cuda.device_count(),'GPUs')
+                    net = nn.DataParallel(net).to(device)
                 net.train()
                 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
                 if args.batch_size:
@@ -182,6 +188,14 @@ if args.train:
         print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
         duration = end_time - start_time
         print('Elapsed time', duration.total_seconds(), ' seconds')
+        new_dict = {} 
+        for k,v in output['state_dict'].items():
+            if k.startswith('module.'):
+                name = k[7:]
+            else:
+                name = k
+            new_dict[name] = v
+        output['state_dict'] = new_dict
         torch.save(output, args.train)
         print('File saved to ', args.train)
 
