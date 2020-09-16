@@ -16,14 +16,31 @@ import numpy as np
 import cv2
 from PIL import Image
 
+
 def check_positive_integer(value):
     value = int(value)
     if value <= 0:
         raise argparse.ArgumentTypeError('Only positive integers are allowed.')
     return value
 
+
 def results_sorter(value):
     return value['loss']
+
+
+def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None):
+    train_net = VggNet(in_channels=3, num_classes=10, size=32,
+                       vgg_type=vgg_type_param, device=device_param).to(device_param)
+    if state_dict is not None:
+        train_net.load_state_dict(state_dict)
+    if torch.cuda.device_count() > 1:
+        print('Attempting to use', torch.cuda.device_count(), 'GPUs')
+        train_net = nn.DataParallel(train_net).to(device_param)
+    train_net.train()
+    train_optimizer = optim.SGD(train_net.parameters(), lr=0.001, momentum=0.9)
+    if optimizer_state_dict is not None:
+        train_optimizer.load_state_dict(optimizer_state_dict)
+    return train_net, train_optimizer
 
 parser = argparse.ArgumentParser(description="Train a new VGG model or use an existing one on the CIFAR-10 data set.")
 parser.add_argument('-T', '--train FILE',
@@ -75,31 +92,19 @@ if args.train:
             competition_size = args.competition_size
 
         results = []
-        print("Training",competition_size,"models, the best one will be saved.")
+        print("Training", competition_size, "models, the best one will be saved.")
         for i in range(competition_size):
             # if we've already used this file and it is partially trained, then lets continue
             if os.path.isfile(args.train):
                 input_file = torch.load(args.train)
                 batch_size = input_file['batch_size']
-                net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
-                net.load_state_dict(input_file['state_dict'])
-                if torch.cuda.device_count() > 1:
-                    print('Attempting to use', torch.cuda.device_count(),'GPUs')
-                    net = nn.DataParallel(net).to(device)
-                net.train()
-                optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-                optimizer.load_state_dict(input_file['optimizer'])
                 start_epoch = input_file['epoch']
+                net, optimizer = create_train_net(input_file['vgg_type'], device, input_file['state_dict'], input_file['optimizer'])
                 if args.batch_size:
                     print('Batch size for this model has already been set to ', batch_size, 'and will not be changed.')
             else:
                 start_epoch = 0
-                net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=args.vgg_type, device=device).to(device)
-                if torch.cuda.device_count() > 1:
-                    print('Attempting to use', torch.cuda.device_count(),'GPUs')
-                    net = nn.DataParallel(net).to(device)
-                net.train()
-                optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+                net, optimizer = create_train_net(args.vgg_type, device)
                 if args.batch_size:
                     batch_size = args.batch_size
 
