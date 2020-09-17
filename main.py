@@ -80,8 +80,9 @@ if args.train:
             # if we've already used this file and it is partially trained, then lets continue
             if os.path.isfile(args.train):
                 input_file = torch.load(args.train)
+                vgg_type = input_file['vgg_type']
                 batch_size = input_file['batch_size']
-                net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
+                net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=vgg_type, device=device).to(device)
                 net.load_state_dict(input_file['state_dict'])
                 if torch.cuda.device_count() > 1:
                     print('Attempting to use', torch.cuda.device_count(),'GPUs')
