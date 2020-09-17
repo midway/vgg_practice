@@ -120,7 +120,7 @@ if args.train:
                 if args.batch_size:
                     batch_size = args.batch_size
 
-            data_dir = 'data\\catsdogs'
+            data_dir = 'data/catsdogs'
             image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), transforms[x])
                               for x in ['train', 'val']}
             dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=64,
