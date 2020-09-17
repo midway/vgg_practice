@@ -32,7 +32,12 @@ if __name__ == '__main__':
         images, labels = data[0], data[1]
         for i in range(0, 50):
             if labels[i] == 3 or labels[i] == 5:
-                torchvision.utils.save_image(images[i], './data/catsdogs/train/' + classes[labels[i].item()] + '/' + str((h * 50) + i) + '.png')
+                if i % 10 == 0:
+                    torchvision.utils.save_image(images[i],
+                                                 './data/catsdogs/test/' + classes[labels[i].item()] + '/' + str(
+                                                     (h * 50) + i) + '.png')
+                else:
+                    torchvision.utils.save_image(images[i], './data/catsdogs/train/' + classes[labels[i].item()] + '/' + str((h * 50) + i) + '.png')
 
     for h, data in enumerate(validation_loader):
         images, labels = data[0], data[1]

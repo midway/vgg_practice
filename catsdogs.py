@@ -16,7 +16,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 from PIL import Image
-
+from sklearn.datasets import make_classification
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score
 
 def check_positive_integer(value):
     value = int(value)
@@ -56,6 +61,11 @@ transforms = {
     ]),
     'val': transforms.Compose([
         transforms.Resize([32,32]),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    'test': transforms.Compose([
+        transforms.Resize([32, 32]),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
@@ -234,10 +244,13 @@ if args.execute:
         if args.batch_size:
             print('Batch size is only used when training a model.')
 
-        testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                               download=True, transform=transform)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=1,
-                                                 shuffle=True, num_workers=4)
+        data_dir = 'data/catsdogs'
+        image_datasets = datasets.ImageFolder(os.path.join(data_dir, 'test'), transforms['test'])
+        dataloader = torch.utils.data.DataLoader(image_datasets, batch_size=64,
+                                                      shuffle=True, num_workers=4)
+
+        dataset_sizes = len(image_datasets)
+        class_names = image_datasets.classes
 
         net = VggNet(in_channels=3, num_classes=2, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
         net.load_state_dict(input_file['state_dict'])
@@ -245,82 +258,100 @@ if args.execute:
         correct = 0
         total = 0
 
-        # GRADCAM
+        #### GRADCAM
 
-        img, _ = next(iter(testloader))
+        #img, _ = next(iter(testloader))
 
         # get the most likely prediction of the model
-        pred = net(img).to(device)
-        print(pred)
-        predMax = pred.argmax(dim=1)
-        print(predMax)
+        #pred = net(img).to(device)
+        #print(pred)
+        #predMax = pred.argmax(dim=1)
+        #print(predMax)
 
         # get the gradient of the output with respect to the parameters of the model
-        pred[:, predMax].backward()
-        print('Model thinks this is a', classes[predMax])
+        #pred[:, predMax].backward()
+        #print('Model thinks this is a', classes[predMax])
 
         # pull the gradients out of the model
-        gradients = net.get_activations_gradient()
+        #gradients = net.get_activations_gradient()
 
         # pool the gradients across the channels
-        pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
+        #pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
 
         # get the activations of the last convolutional layer
-        activations = net.get_activations(img).detach()
+        #activations = net.get_activations(img).detach()
 
         # weight the channels by corresponding gradients
-        for i in range(512):
-            activations[:, i, :, :] *= pooled_gradients[i]
+        #for i in range(512):
+        #    activations[:, i, :, :] *= pooled_gradients[i]
 
         # average the channels of the activations
-        heatmap = torch.mean(activations, dim=1).squeeze()
+        #heatmap = torch.mean(activations, dim=1).squeeze()
 
         # relu on top of the heatmap
         # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
-        heatmap = np.maximum(heatmap.cpu(), 0)
+        #heatmap = np.maximum(heatmap.cpu(), 0)
 
         # normalize the heatmap
-        heatmap /= torch.max(heatmap)
+        #heatmap /= torch.max(heatmap)
 
         # draw the heatmap
-        plt.matshow(heatmap.squeeze())
-        plt.imsave("./data/heatmap-plot.png", heatmap.squeeze())
-        plt.show()
+        #plt.matshow(heatmap.squeeze())
+        #plt.imsave("./data/heatmap-plot.png", heatmap.squeeze())
+        #plt.show()
 
-        torchvision.utils.save_image(img[0],'./data/cifar-10-example.png')
-        newImage = cv2.imread('./data/cifar-10-example.png')
-        heatmap = cv2.resize(np.array(heatmap), (newImage.shape[1], newImage.shape[0]))
-        heatmap = np.uint8(255 * heatmap)
-        heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-        superimposed_img = heatmap * .4 + newImage
-        cv2.imwrite('./data/heatmap.jpg', heatmap)
-        cv2.imwrite('./data/combined.jpg', superimposed_img)
-        exit()
-        # /GRADCAM
+        #torchvision.utils.save_image(img[0],'./data/cifar-10-example.png')
+        #newImage = cv2.imread('./data/cifar-10-example.png')
+        #heatmap = cv2.resize(np.array(heatmap), (newImage.shape[1], newImage.shape[0]))
+        #heatmap = np.uint8(255 * heatmap)
+        #heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+        #superimposed_img = heatmap * .4 + newImage
+        #cv2.imwrite('./data/heatmap.jpg', heatmap)
+        #cv2.imwrite('./data/combined.jpg', superimposed_img)
+        #exit()
+        #### /GRADCAM
 
-        for i, data in enumerate(Bar(testloader)):
+        for i, data in enumerate(Bar(dataloader)):
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-        print('Accuracy of the network on the 10000 test images: %d %%' % (
+        print('Accuracy of the network on the test images: %d %%' % (
             100 * correct / total))
 
-        class_correct = list(0. for i in range(10))
-        class_total = list(0. for i in range(10))
-        for i, data in enumerate(Bar(testloader)):
+        list_of_predictions = []
+        list_of_targets = []
+        class_correct = list(0. for i in range(2))
+        class_total = list(0. for i in range(2))
+        for i, data in enumerate(Bar(dataloader)):
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
             _, predicted = torch.max(outputs, 1)
             c = (predicted == labels).squeeze()
+            list_of_predictions.append(predicted)
+            list_of_targets.append(labels)
             for i in range(4):
                 label = labels[i]
                 class_correct[label] += c[i].item()
                 class_total[label] += 1
 
-        for i in range(10):
+
+        def plot_roc_curve(fpr, tpr):
+            plt.plot(fpr, tpr, color='orange', label='ROC')
+            plt.plot([0, 1], [0, 1], color='darkblue', linestyle='--')
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.title('Receiver Operating Characteristic (ROC) Curve')
+            plt.legend()
+            plt.show()
+
+        fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0), torch.cat(list_of_predictions, dim=0))
+        plot_roc_curve(fpr, tpr)
+        roc_score = roc_auc_score(torch.cat(list_of_targets, dim=0), torch.cat(list_of_predictions, dim=0))
+        print('roc_score:', roc_score)
+        for i in range(2):
             print('Accuracy of %5s : %2d %%' % (
                 classes[i], 100 * class_correct[i] / class_total[i]))
 
