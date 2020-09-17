@@ -8,6 +8,7 @@ import torch.autograd
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
+from sklearn import metrics
 from torchvision import datasets
 from barbar import Bar
 from datetime import datetime
@@ -32,6 +33,17 @@ def check_positive_integer(value):
 
 def results_sorter(value):
     return value['loss']
+
+
+def plot_roc_curve(fpr, tpr):
+    plt.plot(fpr, tpr, color='orange', label='ROC')
+    plt.plot([0, 1], [0, 1], color='darkblue', linestyle='--')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.legend()
+    plt.savefig('figure.png')
+    plt.show()
 
 
 parser = argparse.ArgumentParser(description="Train a new VGG model or use an existing one on the CIFAR-10 data set.")
@@ -201,12 +213,25 @@ if args.train:
             correct = 0
             total = 0
 
+            list_of_predictions = []
+            list_of_targets = []
+
             for i, data in enumerate(Bar(dataloaders['val'])):
                 images, labels = data[0].to(device), data[1].to(device)
                 outputs = net(images)
+                probs = outputs[:, 1].detach()
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                list_of_predictions.append(probs)
+                list_of_targets.append(labels)
+
+            fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0).cpu(),
+                                             torch.cat(list_of_predictions, dim=0).cpu())
+            plot_roc_curve(fpr, tpr)
+            auc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(),
+                                      torch.cat(list_of_predictions, dim=0).cpu())
+            print('AUC Score:', auc_score)
 
             accuracy = 100 * correct / total
             print('Accuracy of the network on the validation images: %d %%' % accuracy)
@@ -329,29 +354,19 @@ if args.execute:
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
             _, predicted = torch.max(outputs, 1)
+            probs = outputs[:, 1].detach()
             c = (predicted == labels).squeeze()
-            list_of_predictions.append(predicted)
+            list_of_predictions.append(probs)
             list_of_targets.append(labels)
             for i in range(4):
                 label = labels[i]
                 class_correct[label] += c[i].item()
                 class_total[label] += 1
 
-
-        def plot_roc_curve(fpr, tpr):
-            plt.plot(fpr, tpr, color='orange', label='ROC')
-            plt.plot([0, 1], [0, 1], color='darkblue', linestyle='--')
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.title('Receiver Operating Characteristic (ROC) Curve')
-            plt.legend()
-            plt.show()
-            plt.savefig('figure.png')
-
         fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu())
         plot_roc_curve(fpr, tpr)
-        roc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu())
-        print('roc_score:', roc_score)
+        auc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu())
+        print('AUC Score:', auc_score)
         for i in range(2):
             print('Accuracy of %5s : %2d %%' % (
                 classes[i], 100 * class_correct[i] / class_total[i]))
