@@ -346,10 +346,11 @@ if args.execute:
             plt.title('Receiver Operating Characteristic (ROC) Curve')
             plt.legend()
             plt.show()
+            plt.savefig('figure.png')
 
-        fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0), torch.cat(list_of_predictions, dim=0))
+        fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu())
         plot_roc_curve(fpr, tpr)
-        roc_score = roc_auc_score(torch.cat(list_of_targets, dim=0), torch.cat(list_of_predictions, dim=0))
+        roc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu())
         print('roc_score:', roc_score)
         for i in range(2):
             print('Accuracy of %5s : %2d %%' % (
