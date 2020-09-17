@@ -8,6 +8,7 @@ import torch.autograd
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
+from torchvision import datasets
 from barbar import Bar
 from datetime import datetime
 from vgg import VggNet
@@ -28,20 +29,6 @@ def results_sorter(value):
     return value['loss']
 
 
-def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None):
-    train_net = VggNet(in_channels=3, num_classes=10, size=32,
-                       vgg_type=vgg_type_param, device=device_param).to(device_param)
-    if state_dict is not None:
-        train_net.load_state_dict(state_dict)
-    if torch.cuda.device_count() > 1:
-        print('Attempting to use', torch.cuda.device_count(), 'GPUs')
-        train_net = nn.DataParallel(train_net).to(device_param)
-    train_net.train()
-    train_optimizer = optim.SGD(train_net.parameters(), lr=0.001, momentum=0.9)
-    if optimizer_state_dict is not None:
-        train_optimizer.load_state_dict(optimizer_state_dict)
-    return train_net, train_optimizer
-
 parser = argparse.ArgumentParser(description="Train a new VGG model or use an existing one on the CIFAR-10 data set.")
 parser.add_argument('-T', '--train FILE',
                     help='Train a new model and save to file (if file exists it will be used to continue training)',
@@ -51,7 +38,7 @@ parser.add_argument('-E', '--epochs X', help='Train the model using X epochs (de
 parser.add_argument('-X', '--execute FILE', help='Execute an existing .pth file on CIFAR-10 data set.', dest='execute')
 parser.add_argument('-N', '--vgg-type TYPE', help='VGG type.  Valid values are VGG11 and VGG16.',dest='vgg_type')
 parser.add_argument('-C', '--cpu', help='Force to run only on CPU.', action='store_true')
-parser.add_argument('-B', '--batch-size', help='Batch size used for training.  (default: 4)', dest='batch_size', type=check_positive_integer)
+parser.add_argument('-B', '--batch-size', help='Batch size used for training.  (default: 4)', dest='batch_size')
 parser.add_argument('-S', '--competition-size X', help='Train X models and save only the best performing one (least loss)', dest='competition_size', type=check_positive_integer)
 args = parser.parse_args()
 
@@ -59,13 +46,22 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if args.cpu:
     device = 'cpu'
 
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     #transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-     ])
+transforms = {
+    'train': transforms.Compose([
+        transforms.RandomRotation(5),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomResizedCrop(32, scale=(0.96, 1.0), ratio=(0.95, 1.05)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+    'val': transforms.Compose([
+        transforms.Resize([32,32]),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ]),
+}
 
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+classes = ( 'cat', 'dog' )
 
 if args.train:
     if __name__ == '__main__':
@@ -92,37 +88,60 @@ if args.train:
             competition_size = args.competition_size
 
         results = []
-        print("Training", competition_size, "models, the best one will be saved.")
+        print("Training",competition_size,"models, the best one will be saved.")
         for i in range(competition_size):
             # if we've already used this file and it is partially trained, then lets continue
             if os.path.isfile(args.train):
                 input_file = torch.load(args.train)
-                vgg_type = input_file['vgg_type']
                 batch_size = input_file['batch_size']
+                net = VggNet(in_channels=3, num_classes=2, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
+                net.load_state_dict(input_file['state_dict'])
+                net.train()
+                optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+                optimizer.load_state_dict(input_file['optimizer'])
                 start_epoch = input_file['epoch']
-                net, optimizer = create_train_net(vgg_type, device, input_file['state_dict'], input_file['optimizer'])
                 if args.batch_size:
                     print('Batch size for this model has already been set to ', batch_size, 'and will not be changed.')
             else:
                 start_epoch = 0
-                net, optimizer = create_train_net(args.vgg_type, device)
+                net = VggNet(in_channels=3, num_classes=2, size=32, vgg_type=args.vgg_type, device=device).to(device)
+                net.train()
+                optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
                 if args.batch_size:
                     batch_size = args.batch_size
 
-            trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                                    download=True, transform=transform)
+            data_dir = 'data\\catsdogs'
+            image_datasets = {x: datasets.ImageFolder(os.path.join(data_dir, x), transforms[x])
+                              for x in ['train', 'val']}
+            dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=64,
+                                                          shuffle=True, num_workers=4)
+                           for x in ['train', 'val']}
+            dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+            class_names = image_datasets['train'].classes
 
-            trainset_indeces = list(range(0, 42500))
-            validationset_indeces = list(range(42500, 50000))
+            print(class_names)  # => ['cats', 'dogs']
+            print(f'Train image size: {dataset_sizes["train"]}')
+            print(f'Validation image size: {dataset_sizes["val"]}')
 
-            trainset_smaller = torch.utils.data.Subset(trainset, trainset_indeces)
-            validation_set = torch.utils.data.Subset(trainset, validationset_indeces)
 
-            trainloader = torch.utils.data.DataLoader(trainset_smaller, batch_size=batch_size,
-                                                      shuffle=True, num_workers=4, pin_memory=True)
+            def imshow(inp, title=None):
+                """Imshow for Tensor."""
+                inp = inp.numpy().transpose((1, 2, 0))
+                mean = np.array([0.485, 0.456, 0.406])
+                std = np.array([0.229, 0.224, 0.225])
+                inp = std * inp + mean
+                inp = np.clip(inp, 0, 1)
+                plt.imshow(inp)
+                if title is not None:
+                    plt.title(title)
+                plt.pause(0.001)  # pause a bit so that plots are updated
 
-            validation_loader = torch.utils.data.DataLoader(validation_set, batch_size=batch_size,
-                                                      shuffle=True, num_workers=4, pin_memory=True)
+
+            # Get a batch of training data
+            inputs, classes = next(iter(dataloaders['train']))
+            # Make a grid from batch
+            sample_train_images = torchvision.utils.make_grid(inputs)
+            imshow(sample_train_images, title=classes)
 
             criterion = nn.CrossEntropyLoss()
 
@@ -132,7 +151,7 @@ if args.train:
             for epoch in range(epochs):  # loop over the dataset multiple times
                 print('started epoch', start_epoch + epoch + 1, 'of', start_epoch + epochs)
                 running_loss = 0.0
-                for i, data in enumerate(Bar(trainloader), 0):
+                for i, data in enumerate(Bar(dataloaders['train']), 0):
                     # get the inputs; data is a list of [inputs, labels]
                     inputs, labels = data[0].to(device), data[1].to(device)
 
@@ -172,7 +191,7 @@ if args.train:
             correct = 0
             total = 0
 
-            for i, data in enumerate(Bar(validation_loader)):
+            for i, data in enumerate(Bar(dataloaders['val'])):
                 images, labels = data[0].to(device), data[1].to(device)
                 outputs = net(images)
                 _, predicted = torch.max(outputs.data, 1)
@@ -180,7 +199,7 @@ if args.train:
                 correct += (predicted == labels).sum().item()
 
             accuracy = 100 * correct / total
-            print('Accuracy of the network on the 7500 validation images: %d %%' % accuracy)
+            print('Accuracy of the network on the validation images: %d %%' % accuracy)
             if not best_accuracy:
                 best_accuracy = accuracy
                 output = result
@@ -194,14 +213,6 @@ if args.train:
         print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
         duration = end_time - start_time
         print('Elapsed time', duration.total_seconds(), ' seconds')
-        new_dict = {} 
-        for k,v in output['state_dict'].items():
-            if k.startswith('module.'):
-                name = k[7:]
-            else:
-                name = k
-            new_dict[name] = v
-        output['state_dict'] = new_dict
         torch.save(output, args.train)
         print('File saved to ', args.train)
 
@@ -228,7 +239,7 @@ if args.execute:
         testloader = torch.utils.data.DataLoader(testset, batch_size=1,
                                                  shuffle=True, num_workers=4)
 
-        net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
+        net = VggNet(in_channels=3, num_classes=2, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
         net.load_state_dict(input_file['state_dict'])
         net.eval()
         correct = 0
