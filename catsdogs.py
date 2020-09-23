@@ -357,8 +357,10 @@ if args.execute:
         print('Accuracy of the network on the test images: %d %%' % (
             100 * correct / total))
 
-        list_of_predictions = []
+        list_of_probabilities = []
         list_of_targets = []
+        list_of_predictions = []
+
         class_correct = list(0. for i in range(2))
         class_total = list(0. for i in range(2))
         for i, data in enumerate(Bar(dataloader)):
@@ -367,16 +369,33 @@ if args.execute:
             _, predicted = torch.max(outputs, 1)
             probs = outputs[:, 1].detach()
             c = (predicted == labels).squeeze()
-            list_of_predictions.append(probs)
-            list_of_targets.append(labels)
+            list_of_predictions.append(predicted.cpu())
+            list_of_probabilities.append(probs.cpu())
+            list_of_targets.append(labels.cpu())
             for i in range(4):
                 label = labels[i]
                 class_correct[label] += c[i].item()
                 class_total[label] += 1
 
-        fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu())
+
+        tn, fp, fn, tp = confusion_matrix(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu()).ravel()
+        print(tn, fp, fn, tp)
+
+        ppv = tp / (tp + fp)
+        print('Positive Predictive Value:', ppv)
+
+        npv = tn / (tn + fn)
+        print('Negative Predictive Value', npv)
+
+        specificity = tn / (tn + fp)
+        print('Specificity:', specificity)
+
+        sensitivity = tp / (tp + fn)
+        print('Sensitivity:', sensitivity)
+
+        fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_probabilities, dim=0).cpu())
         plot_roc_curve(fpr, tpr)
-        auc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu())
+        auc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_probabilities, dim=0).cpu())
         print('AUC Score:', auc_score)
         for i in range(2):
             print('Accuracy of %5s : %2d %%' % (
