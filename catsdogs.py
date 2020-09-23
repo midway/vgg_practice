@@ -1,28 +1,21 @@
 from __future__ import print_function
 import argparse
+import itertools
 import os
-
-import torch
 import torchvision
 import torch.autograd
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
-from sklearn import metrics
 from torchvision import datasets
 from barbar import Bar
 from datetime import datetime
 from vgg import VggNet
 import matplotlib.pyplot as plt
 import numpy as np
-import cv2
-from PIL import Image
-from sklearn.datasets import make_classification
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import confusion_matrix
 
 def check_positive_integer(value):
     value = int(value)
@@ -213,8 +206,9 @@ if args.train:
             correct = 0
             total = 0
 
-            list_of_predictions = []
+            list_of_probabilities = []
             list_of_targets = []
+            list_of_predictions = []
 
             for i, data in enumerate(Bar(dataloaders['val'])):
                 images, labels = data[0].to(device), data[1].to(device)
@@ -223,14 +217,31 @@ if args.train:
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
-                list_of_predictions.append(probs)
-                list_of_targets.append(labels)
+                list_of_probabilities.append(probs.cpu())
+                list_of_predictions.append(predicted.cpu())
+                list_of_targets.append(labels.cpu())
+
+            tn, fp, fn, tp = confusion_matrix(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu()).ravel()
+            print(tn, fp, fn, tp)
+
+            ppv = tp / (tp + fp)
+            print('Positive Predictive Value:', ppv)
+
+            npv = tn / (tn + fn)
+            print('Negative Predictive Value', npv)
+
+            specificity = tn / (tn + fp)
+            print('Specificity:', specificity)
+
+            sensitivity = tp / (tp + fn)
+            print('Sensitivity:', sensitivity)
+
 
             fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0).cpu(),
-                                             torch.cat(list_of_predictions, dim=0).cpu())
+                                             torch.cat(list_of_probabilities, dim=0).cpu())
             plot_roc_curve(fpr, tpr)
             auc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(),
-                                      torch.cat(list_of_predictions, dim=0).cpu())
+                                      torch.cat(list_of_probabilities, dim=0).cpu())
             print('AUC Score:', auc_score)
 
             accuracy = 100 * correct / total
