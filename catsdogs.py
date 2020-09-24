@@ -71,6 +71,7 @@ if args.train:
         if args.competition_size:
             competition_size = args.competition_size
 
+        epoch_losses = []
         results = []
         print("Training", competition_size, "models, the best one will be saved.")
         for i in range(competition_size):
@@ -81,6 +82,7 @@ if args.train:
                 batch_size = input_file['batch_size']
                 start_epoch = input_file['epoch']
                 learn_rate = input_file['learn_rate']
+                epoch_losses = input_file['epoch_losses']
                 net, optimizer = create_train_net(vgg_type, device, input_file['state_dict'], input_file['optimizer'],
                                                   learn_rate=learn_rate, num_classes=2, size=32)
                 if args.batch_size:
@@ -128,7 +130,6 @@ if args.train:
 
             net.train()
 
-            epoch_losses = input_file['epoch_losses']
             running_loss = 0.0
             for epoch in range(epochs):  # loop over the dataset multiple times
                 print('started epoch', start_epoch + epoch + 1, 'of', start_epoch + epochs)
