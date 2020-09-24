@@ -128,7 +128,7 @@ if args.train:
 
             net.train()
 
-            epoch_losses = []
+            epoch_losses = input_file['epoch_losses']
             running_loss = 0.0
             for epoch in range(epochs):  # loop over the dataset multiple times
                 print('started epoch', start_epoch + epoch + 1, 'of', start_epoch + epochs)

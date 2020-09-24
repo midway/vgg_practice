@@ -13,6 +13,7 @@ def results_sorter(value):
 
 
 def plot_roc_curve(fpr, tpr, filename='figure.png', color='orange', line_color='darkblue'):
+    plt.figure(1)
     plt.plot(fpr, tpr, color=color, label='ROC')
     plt.plot([0, 1], [0, 1], color=line_color, linestyle='--')
     plt.xlabel('False Positive Rate')
@@ -23,6 +24,7 @@ def plot_roc_curve(fpr, tpr, filename='figure.png', color='orange', line_color='
 
 
 def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='darkblue'):
+    plt.figure(2)
     plt.plot(epoch_losses, color=color)
     plt.xlabel('Epoch')
     plt.ylabel('Average loss')
