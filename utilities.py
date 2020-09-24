@@ -47,7 +47,7 @@ def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_st
     return train_net, train_optimizer
 
 
-def print_model_metrics(targets, predictions, probabilities, epoch_losses):
+def print_model_metrics(targets, predictions, probabilities):
     tn, fp, fn, tp = confusion_matrix(torch.cat(targets, dim=0).cpu(),
                                       torch.cat(predictions, dim=0).cpu()).ravel()
     print(tn, fp, fn, tp)
