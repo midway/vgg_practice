@@ -1,5 +1,5 @@
 from __future__ import print_function
-import argparse
+
 import itertools
 import os
 import torchvision
@@ -10,63 +10,17 @@ import torch.optim as optim
 from torchvision import datasets
 from barbar import Bar
 from datetime import datetime
+
+from command_line_parser import parse_args
 from vgg import VggNet
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix
+from utilities import plot_roc_curve, create_train_net
 
-def check_positive_integer(value):
-    value = int(value)
-    if value <= 0:
-        raise argparse.ArgumentTypeError('Only positive integers are allowed.')
-    return value
-
-
-def results_sorter(value):
-    return value['loss']
-
-
-def plot_roc_curve(fpr, tpr):
-    plt.plot(fpr, tpr, color='orange', label='ROC')
-    plt.plot([0, 1], [0, 1], color='darkblue', linestyle='--')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic (ROC) Curve')
-    plt.legend()
-    plt.savefig('figure.png')
-    #plt.show()
-
-
-def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None, learn_rate=0.001):
-    train_net = VggNet(in_channels=3, num_classes=2, size=32,
-                       vgg_type=vgg_type_param, device=device_param).to(device_param)
-    if state_dict is not None:
-        train_net.load_state_dict(state_dict)
-    if torch.cuda.device_count() > 1:
-        print('Attempting to use', torch.cuda.device_count(), 'GPUs')
-        train_net = nn.DataParallel(train_net).to(device_param)
-    train_net.train()
-    train_optimizer = optim.SGD(train_net.parameters(), lr=learn_rate, momentum=0.9)
-    if optimizer_state_dict is not None:
-        train_optimizer.load_state_dict(optimizer_state_dict)
-    return train_net, train_optimizer
-
-parser = argparse.ArgumentParser(description="Train a new VGG model or use an existing one on the CIFAR-10 data set.")
-parser.add_argument('-T', '--train FILE',
-                    help='Train a new model and save to file (if file exists it will be used to continue training)',
-                    dest='train')
-parser.add_argument('-E', '--epochs X', help='Train the model using X epochs (default: 3)',
-                    dest='epochs', type=check_positive_integer)
-parser.add_argument('-X', '--execute FILE', help='Execute an existing .pth file on CIFAR-10 data set.', dest='execute')
-parser.add_argument('-N', '--vgg-type TYPE', help='VGG type.  Valid values are VGG11 and VGG16.',dest='vgg_type')
-parser.add_argument('-C', '--cpu', help='Force to run only on CPU.', action='store_true')
-parser.add_argument('-B', '--batch-size', help='Batch size used for training.  (default: 4)', dest='batch_size')
-parser.add_argument('-S', '--competition-size X', help='Train X models and save only the best performing one (least loss)', dest='competition_size', type=check_positive_integer)
-parser.add_argument('-L', '--learn-rate X', help='Learn Rate (default: 0.001)', dest='learn_rate')
-
-args = parser.parse_args()
+args = parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if args.cpu:
@@ -133,12 +87,12 @@ if args.train:
                 start_epoch = input_file['epoch']
                 learn_rate = input_file['learn_rate']
                 net, optimizer = create_train_net(vgg_type, device, input_file['state_dict'], input_file['optimizer'],
-                                                  learn_rate=learn_rate)
+                                                  learn_rate=learn_rate, num_classes=2, size=32)
                 if args.batch_size:
                     print('Batch size for this model has already been set to ', batch_size, 'and will not be changed.')
             else:
                 start_epoch = 0
-                net, optimizer = create_train_net(args.vgg_type, device, learn_rate=learn_rate)
+                net, optimizer = create_train_net(args.vgg_type, device, learn_rate=learn_rate, num_classes=2, size=32)
                 if args.batch_size:
                     batch_size = args.batch_size
 
