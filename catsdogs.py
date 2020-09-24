@@ -130,6 +130,9 @@ if args.train:
 
             net.train()
 
+            lowest_running_loss = None
+            if len(epoch_losses) > 0:
+                lowest_running_loss = min(epoch_losses)
             running_loss = 0.0
             for epoch in range(epochs):  # loop over the dataset multiple times
                 print('started epoch', start_epoch + epoch + 1, 'of', start_epoch + epochs)
@@ -148,7 +151,30 @@ if args.train:
                     optimizer.step()
 
                     running_loss += float(loss.item())
-                epoch_losses.append(running_loss / len(dataloaders['train'].dataset))
+                epoch_losses.append(running_loss)
+                if running_loss < lowest_running_loss:
+                    running_output_data = {
+                        'vgg_type': vgg_type,
+                        'state_dict': net.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                        'epoch': start_epoch + epochs,
+                        'learn_rate': learn_rate,
+                        'batch_size': batch_size,
+                        'loss': running_loss,
+                        'epoch_losses': epoch_losses
+                    }
+                    new_dict = {}
+                    for k, v in running_output_data['state_dict'].items():
+                        if k.startswith('module.'):
+                            name = k[7:]
+                        else:
+                            name = k
+                        new_dict[name] = v
+                    running_output_data['state_dict'] = new_dict
+                    torch.save(running_output_data, args.train + '-temp')
+                    lowest_running_loss = running_loss
+                    print('Lowest loss epoch found.  Model saved.')
+
                 print('Average loss:', running_loss / len(dataloaders['train'].dataset))
 
             # we save the running loss of the last epoch
@@ -159,7 +185,7 @@ if args.train:
                 'epoch': start_epoch + epochs,
                 'learn_rate': learn_rate,
                 'batch_size': batch_size,
-                'loss': running_loss / len(dataloaders['train'].dataset),
+                'loss': running_loss,
                 'epoch_losses': epoch_losses
             }
 
