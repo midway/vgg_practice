@@ -94,6 +94,7 @@ if args.train:
 
             net.train()
 
+            epoch_losses = []
             running_loss = 0.0
             for epoch in range(epochs):  # loop over the dataset multiple times
                 print('started epoch', start_epoch + epoch + 1, 'of', start_epoch + epochs)
@@ -112,7 +113,8 @@ if args.train:
                     optimizer.step()
 
                     running_loss += float(loss.item())
-                print('Average loss:', running_loss / 10000)
+                epoch_losses.append(running_loss / len(trainloader.dataset))
+                print('Average loss:', running_loss / len(trainloader.dataset))
 
             # we save the running loss of the last epoch
             output_data = {
@@ -122,7 +124,8 @@ if args.train:
                 'epoch': start_epoch + epochs,
                 'learn_rate': learn_rate,
                 'batch_size': batch_size,
-                'loss': running_loss / 10000
+                'loss': running_loss / len(trainloader.dataset),
+                'epoch_losses': epoch_losses
             }
 
             results.append(output_data)

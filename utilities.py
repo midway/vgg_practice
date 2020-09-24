@@ -20,7 +20,15 @@ def plot_roc_curve(fpr, tpr, filename='figure.png', color='orange', line_color='
     plt.title('Receiver Operating Characteristic (ROC) Curve')
     plt.legend()
     plt.savefig(filename)
-    #plt.show()
+
+
+def plt_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='darkblue'):
+    plt.plot(epoch_losses, color=color)
+    plt.xlabel('Epoch')
+    plt.ylabel('Average loss')
+    plt.title('Average loss per epoch')
+    plt.legend()
+    plt.savefig(filename)
 
 
 def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None, learn_rate=0.001,
