@@ -13,10 +13,7 @@ from command_line_parser import parse_args
 from vgg import VggNet
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.metrics import roc_curve
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import confusion_matrix
-from utilities import plot_roc_curve, create_train_net
+from utilities import create_train_net, print_model_metrics
 
 args = parse_args()
 
@@ -33,7 +30,7 @@ transforms = {
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
     'val': transforms.Compose([
-        transforms.Resize([32,32]),
+        transforms.Resize([32, 32]),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ]),
@@ -44,7 +41,7 @@ transforms = {
     ]),
 }
 
-classes = ( 'cat', 'dog' )
+classes = ('cat', 'dog')
 
 if args.train:
     if __name__ == '__main__':
@@ -75,7 +72,8 @@ if args.train:
             competition_size = args.competition_size
 
         results = []
-        print("Training",competition_size,"models, the best one will be saved.")
+        epoch_losses = []
+        print("Training", competition_size, "models, the best one will be saved.")
         for i in range(competition_size):
             # if we've already used this file and it is partially trained, then lets continue
             if os.path.isfile(args.train):
@@ -191,28 +189,7 @@ if args.train:
                 list_of_predictions.append(predicted.cpu())
                 list_of_targets.append(labels.cpu())
 
-            tn, fp, fn, tp = confusion_matrix(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu()).ravel()
-            print(tn, fp, fn, tp)
-
-            ppv = tp / (tp + fp)
-            print('Positive Predictive Value:', ppv)
-
-            npv = tn / (tn + fn)
-            print('Negative Predictive Value', npv)
-
-            specificity = tn / (tn + fp)
-            print('Specificity:', specificity)
-
-            sensitivity = tp / (tp + fn)
-            print('Sensitivity:', sensitivity)
-
-
-            fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0).cpu(),
-                                             torch.cat(list_of_probabilities, dim=0).cpu())
-            plot_roc_curve(fpr, tpr)
-            auc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(),
-                                      torch.cat(list_of_probabilities, dim=0).cpu())
-            print('AUC Score:', auc_score)
+            print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities)
 
             accuracy = 100 * correct / total
             print('Accuracy of the network on the validation images: %d %%' % accuracy)
@@ -230,7 +207,7 @@ if args.train:
         duration = end_time - start_time
         print('Elapsed time', duration.total_seconds(), ' seconds')
         new_dict = {}
-        for k,v in output['state_dict'].items():
+        for k, v in output['state_dict'].items():
             if k.startswith('module.'):
                 name = k[7:]
             else:
@@ -261,7 +238,7 @@ if args.execute:
         data_dir = 'data/catsdogs'
         image_datasets = datasets.ImageFolder(os.path.join(data_dir, 'test'), transforms['test'])
         dataloader = torch.utils.data.DataLoader(image_datasets, batch_size=64,
-                                                      shuffle=True, num_workers=4)
+                                                 shuffle=True, num_workers=4)
 
         dataset_sizes = len(image_datasets)
         class_names = image_datasets.classes
@@ -274,55 +251,55 @@ if args.execute:
 
         #### GRADCAM
 
-        #img, _ = next(iter(testloader))
+        # img, _ = next(iter(testloader))
 
         # get the most likely prediction of the model
-        #pred = net(img).to(device)
-        #print(pred)
-        #predMax = pred.argmax(dim=1)
-        #print(predMax)
+        # pred = net(img).to(device)
+        # print(pred)
+        # predMax = pred.argmax(dim=1)
+        # print(predMax)
 
         # get the gradient of the output with respect to the parameters of the model
-        #pred[:, predMax].backward()
-        #print('Model thinks this is a', classes[predMax])
+        # pred[:, predMax].backward()
+        # print('Model thinks this is a', classes[predMax])
 
         # pull the gradients out of the model
-        #gradients = net.get_activations_gradient()
+        # gradients = net.get_activations_gradient()
 
         # pool the gradients across the channels
-        #pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
+        # pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
 
         # get the activations of the last convolutional layer
-        #activations = net.get_activations(img).detach()
+        # activations = net.get_activations(img).detach()
 
         # weight the channels by corresponding gradients
-        #for i in range(512):
+        # for i in range(512):
         #    activations[:, i, :, :] *= pooled_gradients[i]
 
         # average the channels of the activations
-        #heatmap = torch.mean(activations, dim=1).squeeze()
+        # heatmap = torch.mean(activations, dim=1).squeeze()
 
         # relu on top of the heatmap
         # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
-        #heatmap = np.maximum(heatmap.cpu(), 0)
+        # heatmap = np.maximum(heatmap.cpu(), 0)
 
         # normalize the heatmap
-        #heatmap /= torch.max(heatmap)
+        # heatmap /= torch.max(heatmap)
 
         # draw the heatmap
-        #plt.matshow(heatmap.squeeze())
-        #plt.imsave("./data/heatmap-plot.png", heatmap.squeeze())
-        #plt.show()
+        # plt.matshow(heatmap.squeeze())
+        # plt.imsave("./data/heatmap-plot.png", heatmap.squeeze())
+        # plt.show()
 
-        #torchvision.utils.save_image(img[0],'./data/cifar-10-example.png')
-        #newImage = cv2.imread('./data/cifar-10-example.png')
-        #heatmap = cv2.resize(np.array(heatmap), (newImage.shape[1], newImage.shape[0]))
-        #heatmap = np.uint8(255 * heatmap)
-        #heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-        #superimposed_img = heatmap * .4 + newImage
-        #cv2.imwrite('./data/heatmap.jpg', heatmap)
-        #cv2.imwrite('./data/combined.jpg', superimposed_img)
-        #exit()
+        # torchvision.utils.save_image(img[0],'./data/cifar-10-example.png')
+        # newImage = cv2.imread('./data/cifar-10-example.png')
+        # heatmap = cv2.resize(np.array(heatmap), (newImage.shape[1], newImage.shape[0]))
+        # heatmap = np.uint8(255 * heatmap)
+        # heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+        # superimposed_img = heatmap * .4 + newImage
+        # cv2.imwrite('./data/heatmap.jpg', heatmap)
+        # cv2.imwrite('./data/combined.jpg', superimposed_img)
+        # exit()
         #### /GRADCAM
 
         for i, data in enumerate(Bar(dataloader)):
@@ -333,7 +310,7 @@ if args.execute:
             correct += (predicted == labels).sum().item()
 
         print('Accuracy of the network on the test images: %d %%' % (
-            100 * correct / total))
+                100 * correct / total))
 
         list_of_probabilities = []
         list_of_targets = []
@@ -355,26 +332,8 @@ if args.execute:
                 class_correct[label] += c[i].item()
                 class_total[label] += 1
 
+        print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities)
 
-        tn, fp, fn, tp = confusion_matrix(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_predictions, dim=0).cpu()).ravel()
-        print(tn, fp, fn, tp)
-
-        ppv = tp / (tp + fp)
-        print('Positive Predictive Value:', ppv)
-
-        npv = tn / (tn + fn)
-        print('Negative Predictive Value', npv)
-
-        specificity = tn / (tn + fp)
-        print('Specificity:', specificity)
-
-        sensitivity = tp / (tp + fn)
-        print('Sensitivity:', sensitivity)
-
-        fpr, tpr, thresholds = roc_curve(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_probabilities, dim=0).cpu())
-        plot_roc_curve(fpr, tpr)
-        auc_score = roc_auc_score(torch.cat(list_of_targets, dim=0).cpu(), torch.cat(list_of_probabilities, dim=0).cpu())
-        print('AUC Score:', auc_score)
         for i in range(2):
             print('Accuracy of %5s : %2d %%' % (
                 classes[i], 100 * class_correct[i] / class_total[i]))

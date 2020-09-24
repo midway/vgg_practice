@@ -1,12 +1,10 @@
 from __future__ import print_function
 import os
 
-import torch
 import torchvision
 import torch.autograd
 import torchvision.transforms as transforms
 import torch.nn as nn
-import torch.optim as optim
 from vgg import VggNet
 from barbar import Bar
 from datetime import datetime

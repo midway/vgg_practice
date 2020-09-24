@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import confusion_matrix
 from vgg import VggNet
 
 
@@ -34,3 +37,28 @@ def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_st
     if optimizer_state_dict is not None:
         train_optimizer.load_state_dict(optimizer_state_dict)
     return train_net, train_optimizer
+
+
+def print_model_metrics(targets, predictions, probabilities):
+    tn, fp, fn, tp = confusion_matrix(torch.cat(targets, dim=0).cpu(),
+                                      torch.cat(predictions, dim=0).cpu()).ravel()
+    print(tn, fp, fn, tp)
+
+    ppv = tp / (tp + fp)
+    print('Positive Predictive Value:', ppv)
+
+    npv = tn / (tn + fn)
+    print('Negative Predictive Value', npv)
+
+    specificity = tn / (tn + fp)
+    print('Specificity:', specificity)
+
+    sensitivity = tp / (tp + fn)
+    print('Sensitivity:', sensitivity)
+
+    fpr, tpr, thresholds = roc_curve(torch.cat(targets, dim=0).cpu(),
+                                     torch.cat(probabilities, dim=0).cpu())
+    plot_roc_curve(fpr, tpr)
+    auc_score = roc_auc_score(torch.cat(targets, dim=0).cpu(),
+                              torch.cat(probabilities, dim=0).cpu())
+    print('AUC Score:', auc_score)
