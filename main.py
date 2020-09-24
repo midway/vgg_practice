@@ -28,7 +28,7 @@ def results_sorter(value):
     return value['loss']
 
 
-def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None):
+def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None, learn_rate=0.001):
     train_net = VggNet(in_channels=3, num_classes=10, size=32,
                        vgg_type=vgg_type_param, device=device_param).to(device_param)
     if state_dict is not None:
@@ -37,7 +37,7 @@ def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_st
         print('Attempting to use', torch.cuda.device_count(), 'GPUs')
         train_net = nn.DataParallel(train_net).to(device_param)
     train_net.train()
-    train_optimizer = optim.SGD(train_net.parameters(), lr=0.001, momentum=0.9)
+    train_optimizer = optim.SGD(train_net.parameters(), lr=learn_rate, momentum=0.9)
     if optimizer_state_dict is not None:
         train_optimizer.load_state_dict(optimizer_state_dict)
     return train_net, train_optimizer
@@ -53,6 +53,8 @@ parser.add_argument('-N', '--vgg-type TYPE', help='VGG type.  Valid values are V
 parser.add_argument('-C', '--cpu', help='Force to run only on CPU.', action='store_true')
 parser.add_argument('-B', '--batch-size', help='Batch size used for training.  (default: 4)', dest='batch_size', type=check_positive_integer)
 parser.add_argument('-S', '--competition-size X', help='Train X models and save only the best performing one (least loss)', dest='competition_size', type=check_positive_integer)
+parser.add_argument('-L', '--learn-rate X', help='Learn Rate (default: 0.001)', dest='learn_rate')
+
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,6 +79,10 @@ if args.train:
 
         batch_size = 4
         epochs = 3
+        learn_rate = 0.001
+        if args.learn_rate:
+            if args.learn_rate.replace('.', '', 1).isdigit():
+                learn_rate = float(args.learn_rate)
         if args.epochs:
             epochs = args.epochs
         if args.train and not os.path.isfile(args.train):
@@ -100,12 +106,13 @@ if args.train:
                 vgg_type = input_file['vgg_type']
                 batch_size = input_file['batch_size']
                 start_epoch = input_file['epoch']
-                net, optimizer = create_train_net(vgg_type, device, input_file['state_dict'], input_file['optimizer'])
+                learn_rate = input_file['learn_rate']
+                net, optimizer = create_train_net(vgg_type, device, input_file['state_dict'], input_file['optimizer'], learn_rate=learn_rate)
                 if args.batch_size:
                     print('Batch size for this model has already been set to ', batch_size, 'and will not be changed.')
             else:
                 start_epoch = 0
-                net, optimizer = create_train_net(args.vgg_type, device)
+                net, optimizer = create_train_net(args.vgg_type, device, learn_rate=learn_rate)
                 if args.batch_size:
                     batch_size = args.batch_size
 
@@ -154,6 +161,7 @@ if args.train:
                 'state_dict': net.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'epoch': start_epoch + epochs,
+                'learn_rate': learn_rate,
                 'batch_size': batch_size,
                 'loss': running_loss / 10000
             }

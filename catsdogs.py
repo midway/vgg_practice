@@ -36,8 +36,22 @@ def plot_roc_curve(fpr, tpr):
     plt.title('Receiver Operating Characteristic (ROC) Curve')
     plt.legend()
     plt.savefig('figure.png')
-    plt.show()
+    #plt.show()
 
+
+def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None, learn_rate=0.001):
+    train_net = VggNet(in_channels=3, num_classes=2, size=32,
+                       vgg_type=vgg_type_param, device=device_param).to(device_param)
+    if state_dict is not None:
+        train_net.load_state_dict(state_dict)
+    if torch.cuda.device_count() > 1:
+        print('Attempting to use', torch.cuda.device_count(), 'GPUs')
+        train_net = nn.DataParallel(train_net).to(device_param)
+    train_net.train()
+    train_optimizer = optim.SGD(train_net.parameters(), lr=learn_rate, momentum=0.9)
+    if optimizer_state_dict is not None:
+        train_optimizer.load_state_dict(optimizer_state_dict)
+    return train_net, train_optimizer
 
 parser = argparse.ArgumentParser(description="Train a new VGG model or use an existing one on the CIFAR-10 data set.")
 parser.add_argument('-T', '--train FILE',
@@ -50,6 +64,8 @@ parser.add_argument('-N', '--vgg-type TYPE', help='VGG type.  Valid values are V
 parser.add_argument('-C', '--cpu', help='Force to run only on CPU.', action='store_true')
 parser.add_argument('-B', '--batch-size', help='Batch size used for training.  (default: 4)', dest='batch_size')
 parser.add_argument('-S', '--competition-size X', help='Train X models and save only the best performing one (least loss)', dest='competition_size', type=check_positive_integer)
+parser.add_argument('-L', '--learn-rate X', help='Learn Rate (default: 0.001)', dest='learn_rate')
+
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -88,6 +104,10 @@ if args.train:
 
         batch_size = 4
         epochs = 3
+        learn_rate = 0.001
+        if args.learn_rate:
+            if args.learn_rate.replace('.', '', 1).isdigit():
+                learn_rate = float(args.learn_rate)
         if args.epochs:
             epochs = args.epochs
         if args.train and not os.path.isfile(args.train):
@@ -108,20 +128,17 @@ if args.train:
             # if we've already used this file and it is partially trained, then lets continue
             if os.path.isfile(args.train):
                 input_file = torch.load(args.train)
+                vgg_type = input_file['vgg_type']
                 batch_size = input_file['batch_size']
-                net = VggNet(in_channels=3, num_classes=2, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
-                net.load_state_dict(input_file['state_dict'])
-                net.train()
-                optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-                optimizer.load_state_dict(input_file['optimizer'])
                 start_epoch = input_file['epoch']
+                learn_rate = input_file['learn_rate']
+                net, optimizer = create_train_net(vgg_type, device, input_file['state_dict'], input_file['optimizer'],
+                                                  learn_rate=learn_rate)
                 if args.batch_size:
                     print('Batch size for this model has already been set to ', batch_size, 'and will not be changed.')
             else:
                 start_epoch = 0
-                net = VggNet(in_channels=3, num_classes=2, size=32, vgg_type=args.vgg_type, device=device).to(device)
-                net.train()
-                optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+                net, optimizer = create_train_net(args.vgg_type, device, learn_rate=learn_rate)
                 if args.batch_size:
                     batch_size = args.batch_size
 
@@ -153,10 +170,10 @@ if args.train:
 
 
             # Get a batch of training data
-            inputs, classes = next(iter(dataloaders['train']))
+            # inputs, classes = next(iter(dataloaders['train']))
             # Make a grid from batch
-            sample_train_images = torchvision.utils.make_grid(inputs)
-            imshow(sample_train_images, title=classes)
+            # sample_train_images = torchvision.utils.make_grid(inputs)
+            # imshow(sample_train_images, title=classes)
 
             criterion = nn.CrossEntropyLoss()
 
@@ -188,6 +205,7 @@ if args.train:
                 'state_dict': net.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'epoch': start_epoch + epochs,
+                'learn_rate': learn_rate,
                 'batch_size': batch_size,
                 'loss': running_loss / 10000
             }
@@ -259,6 +277,14 @@ if args.train:
         print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
         duration = end_time - start_time
         print('Elapsed time', duration.total_seconds(), ' seconds')
+        new_dict = {}
+        for k,v in output['state_dict'].items():
+            if k.startswith('module.'):
+                name = k[7:]
+            else:
+                name = k
+            new_dict[name] = v
+        output['state_dict'] = new_dict
         torch.save(output, args.train)
         print('File saved to ', args.train)
 
