@@ -13,7 +13,7 @@ from command_line_parser import parse_args
 from vgg import VggNet
 import matplotlib.pyplot as plt
 import numpy as np
-from utilities import create_train_net, print_model_metrics
+from utilities import create_train_net, print_model_metrics, plot_epoch_losses
 
 args = parse_args()
 
@@ -217,6 +217,7 @@ if args.train:
             new_dict[name] = v
         output['state_dict'] = new_dict
         torch.save(output, args.train)
+        plot_epoch_losses(output['epoch_losses'])
         print('File saved to ', args.train)
 
 if args.execute:

@@ -22,7 +22,7 @@ def plot_roc_curve(fpr, tpr, filename='figure.png', color='orange', line_color='
     plt.savefig(filename)
 
 
-def plt_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='darkblue'):
+def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='darkblue'):
     plt.plot(epoch_losses, color=color)
     plt.xlabel('Epoch')
     plt.ylabel('Average loss')
@@ -47,7 +47,7 @@ def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_st
     return train_net, train_optimizer
 
 
-def print_model_metrics(targets, predictions, probabilities):
+def print_model_metrics(targets, predictions, probabilities, epoch_losses):
     tn, fp, fn, tp = confusion_matrix(torch.cat(targets, dim=0).cpu(),
                                       torch.cat(predictions, dim=0).cpu()).ravel()
     print(tn, fp, fn, tp)
@@ -70,3 +70,4 @@ def print_model_metrics(targets, predictions, probabilities):
     auc_score = roc_auc_score(torch.cat(targets, dim=0).cpu(),
                               torch.cat(probabilities, dim=0).cpu())
     print('AUC Score:', auc_score)
+
