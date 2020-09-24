@@ -130,9 +130,10 @@ if args.train:
 
             net.train()
 
-            lowest_running_loss = None
+            lowest_running_loss = 1000000000
             if len(epoch_losses) > 0:
                 lowest_running_loss = min(epoch_losses)
+                print('lowest_running_loss:', lowest_running_loss)
             running_loss = 0.0
             for epoch in range(epochs):  # loop over the dataset multiple times
                 print('started epoch', start_epoch + epoch + 1, 'of', start_epoch + epochs)
