@@ -1,5 +1,4 @@
 from __future__ import print_function
-import argparse
 import os
 
 import torch
@@ -8,9 +7,9 @@ import torch.autograd
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.optim as optim
+from vgg import VggNet
 from barbar import Bar
 from datetime import datetime
-from vgg import VggNet
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2

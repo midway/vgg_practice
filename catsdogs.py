@@ -2,11 +2,9 @@ from __future__ import print_function
 
 import itertools
 import os
-import torchvision
 import torch.autograd
 import torchvision.transforms as transforms
 import torch.nn as nn
-import torch.optim as optim
 from torchvision import datasets
 from barbar import Bar
 from datetime import datetime
@@ -92,7 +90,7 @@ if args.train:
                     print('Batch size for this model has already been set to ', batch_size, 'and will not be changed.')
             else:
                 start_epoch = 0
-                net, optimizer = create_train_net(args.vgg_type, device, learn_rate=learn_rate, num_classes=2, size=32)
+                net, optimizer = create_train_net(vgg_type, device, learn_rate=learn_rate, num_classes=2, size=32)
                 if args.batch_size:
                     batch_size = args.batch_size
 
