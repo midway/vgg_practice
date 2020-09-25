@@ -165,7 +165,7 @@ if args.train:
                         'learn_rate': learn_rate,
                         'batch_size': batch_size,
                         'loss': running_loss,
-                        'epoch_losses': epoch_losses / len(dataloaders['train'].dataset)
+                        'epoch_losses': epoch_losses
                     }
                     new_dict = {}
                     for k, v in running_output_data['state_dict'].items():
