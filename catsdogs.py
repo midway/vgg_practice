@@ -42,7 +42,7 @@ transforms = {
     ]),
 }
 
-classes = ('cat', 'dog')
+classes = (['dog'])
 class_count = len(classes)
 
 if args.train:
@@ -128,7 +128,7 @@ if args.train:
             # sample_train_images = torchvision.utils.make_grid(inputs)
             # imshow(sample_train_images, title=classes)
 
-            criterion = nn.CrossEntropyLoss()
+            criterion = nn.BCEWithLogitsLoss()
 
             net.train()
 
@@ -150,7 +150,7 @@ if args.train:
 
                     # forward + backward + optimize
                     outputs = net(inputs)
-                    loss = criterion(outputs, labels)
+                    loss = criterion(outputs, labels.type_as(outputs).unsqueeze(1))
                     loss.backward()
                     optimizer.step()
 

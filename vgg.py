@@ -123,7 +123,3 @@ class VggNet(nn.Module):
             _.requires_grad_(True)
         return sequential.requires_grad_(True)
 
-
-#model = VggNet(in_channels=3, num_classes=1000, size=32)
-#a = torch.randn(1, 3, 32, 32)
-#print(model(a).shape)
