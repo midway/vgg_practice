@@ -167,14 +167,6 @@ if args.train:
                         'loss': running_loss,
                         'epoch_losses': epoch_losses
                     }
-                    new_dict = {}
-                    for k, v in running_output_data['state_dict'].items():
-                        if k.startswith('module.'):
-                            name = k[7:]
-                        else:
-                            name = k
-                        new_dict[name] = v
-                    running_output_data['state_dict'] = new_dict
                     lowest_running_loss = running_loss
                     print('Lowest loss epoch found.  Model saved.')
 
@@ -235,6 +227,14 @@ if args.train:
 
         end_time = datetime.now()
         print_training_summary(best_accuracy, start_time, end_time, output['epoch_losses'])
+        new_dict = {}
+        for k, v in output['best_epoch']['state_dict'].items():
+            if k.startswith('module.'):
+                name = k[7:]
+            else:
+                name = k
+            new_dict[name] = v
+        output['best_epoch']['state_dict'] = new_dict
         save_model(output['best_epoch'], args.train)
 
 
