@@ -13,7 +13,8 @@ from command_line_parser import parse_args
 from vgg import VggNet
 import matplotlib.pyplot as plt
 import numpy as np
-from utilities import create_train_net, print_model_metrics, plot_epoch_losses, print_execution_summary
+from utilities import create_train_net, print_model_metrics, plot_epoch_losses, print_execution_summary, \
+    print_training_summary, save_model
 
 args = parse_args()
 
@@ -136,6 +137,7 @@ if args.train:
                 lowest_running_loss = min(epoch_losses)
                 print('lowest_running_loss:', lowest_running_loss)
             running_loss = 0.0
+            running_output_data = None
             for epoch in range(epochs):  # loop over the dataset multiple times
                 print('started epoch', start_epoch + epoch + 1, 'of', start_epoch + epochs)
                 running_loss = 0.0
@@ -153,17 +155,17 @@ if args.train:
                     optimizer.step()
 
                     running_loss += float(loss.item())
-                epoch_losses.append(running_loss)
+                epoch_losses.append(running_loss / len(dataloaders['train'].dataset))
                 if running_loss < lowest_running_loss:
                     running_output_data = {
                         'vgg_type': vgg_type,
                         'state_dict': net.state_dict(),
                         'optimizer': optimizer.state_dict(),
-                        'epoch': start_epoch + epochs,
+                        'epoch': start_epoch + epoch,
                         'learn_rate': learn_rate,
                         'batch_size': batch_size,
                         'loss': running_loss,
-                        'epoch_losses': epoch_losses
+                        'epoch_losses': epoch_losses / len(dataloaders['train'].dataset)
                     }
                     new_dict = {}
                     for k, v in running_output_data['state_dict'].items():
@@ -173,7 +175,6 @@ if args.train:
                             name = k
                         new_dict[name] = v
                     running_output_data['state_dict'] = new_dict
-                    torch.save(running_output_data, args.train + '-temp')
                     lowest_running_loss = running_loss
                     print('Lowest loss epoch found.  Model saved.')
 
@@ -188,7 +189,8 @@ if args.train:
                 'learn_rate': learn_rate,
                 'batch_size': batch_size,
                 'loss': running_loss,
-                'epoch_losses': epoch_losses
+                'epoch_losses': epoch_losses,
+                'best_epoch': running_output_data
             }
 
             results.append(output_data)
@@ -200,7 +202,7 @@ if args.train:
         best_accuracy = False
         best_output = False
         for result in results:
-            net.load_state_dict(result['state_dict'])
+            net.load_state_dict(result['best_epoch']['state_dict'])
             net.eval()
             correct = 0
             total = 0
@@ -231,23 +233,10 @@ if args.train:
                 best_accuracy = accuracy
                 output = result
 
-        print('Network with accuracy of ', best_accuracy, 'on validation data set chosen.')
-        print('Finished Training')
         end_time = datetime.now()
-        print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
-        duration = end_time - start_time
-        print('Elapsed time', duration.total_seconds(), ' seconds')
-        new_dict = {}
-        for k, v in output['state_dict'].items():
-            if k.startswith('module.'):
-                name = k[7:]
-            else:
-                name = k
-            new_dict[name] = v
-        output['state_dict'] = new_dict
-        torch.save(output, args.train)
-        plot_epoch_losses(output['epoch_losses'])
-        print('File saved to ', args.train)
+        print_training_summary(best_accuracy, start_time, end_time, output['epoch_losses'])
+        save_model(output['best_epoch'], args.train)
+
 
 if args.execute:
     if __name__ == '__main__':

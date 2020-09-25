@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import numpy as np
 from sklearn.metrics import roc_curve
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import confusion_matrix
@@ -23,9 +24,11 @@ def plot_roc_curve(fpr, tpr, filename='figure.png', color='orange', line_color='
     plt.savefig(filename)
 
 
-def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='darkblue'):
+def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='green'):
+    lowest_loss_epoch = np.argmin(epoch_losses)
     plt.figure(2)
     plt.plot(epoch_losses, color=color)
+    plt.axvline(lowest_loss_epoch, 0, 1, f'Lowest Loss Epoch: {lowest_loss_epoch}')
     plt.xlabel('Epoch')
     plt.ylabel('Average loss')
     plt.title('Average loss per epoch')
@@ -82,3 +85,17 @@ def print_execution_summary(classes, class_correct, class_total, start_time, end
     print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
     duration = end_time - start_time
     print('Elapsed time', duration.total_seconds(), ' seconds')
+
+
+def print_training_summary(best_accuracy, start_time, end_time, epoch_losses):
+    print('Network with accuracy of ', best_accuracy, 'on validation data set chosen.')
+    print('Finished Training')
+    print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
+    duration = end_time - start_time
+    print('Elapsed time', duration.total_seconds(), ' seconds')
+    plot_epoch_losses(epoch_losses)
+
+
+def save_model(model, filename):
+    torch.save(model, filename)
+    print('File saved to ', filename)
