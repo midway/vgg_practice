@@ -222,7 +222,7 @@ if args.train:
                 list_of_predictions.append(predicted.cpu())
                 list_of_targets.append(labels.cpu())
 
-            print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities)
+            print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities, prefix='training-')
 
             accuracy = 100 * correct / total
             print('Accuracy of the network on the validation images: %d %%' % accuracy)
@@ -353,7 +353,7 @@ if args.execute:
                 class_correct[label] += c[i].item()
                 class_total[label] += 1
 
-        print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities)
+        print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities, prefix='execution-')
 
         end_time = datetime.now()
         print_execution_summary(classes, class_correct, class_total, start_time, end_time)

@@ -13,7 +13,7 @@ def results_sorter(value):
     return value['loss']
 
 
-def plot_roc_curve(fpr, tpr, filename='figure.png', color='orange', line_color='darkblue'):
+def plot_roc_curve(fpr, tpr, filename='roc_curve.png', color='orange', line_color='darkblue', prefix=''):
     plt.figure(1)
     plt.plot(fpr, tpr, color=color, label='ROC')
     plt.plot([0, 1], [0, 1], color=line_color, linestyle='--')
@@ -21,10 +21,10 @@ def plot_roc_curve(fpr, tpr, filename='figure.png', color='orange', line_color='
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC) Curve')
     plt.legend()
-    plt.savefig(filename)
+    plt.savefig(f'{prefix}{filename}')
 
 
-def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='green'):
+def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='green', prefix=''):
     lowest_loss_epoch = np.argmin(epoch_losses)
     plt.figure(2)
     plt.plot(epoch_losses, color=color)
@@ -33,7 +33,7 @@ def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', 
     plt.ylabel('Average loss')
     plt.title('Average loss per epoch')
     plt.legend()
-    plt.savefig(filename)
+    plt.savefig(f'{prefix}{filename}')
 
 
 def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None, learn_rate=0.001,
@@ -52,7 +52,7 @@ def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_st
     return train_net, train_optimizer
 
 
-def print_model_metrics(targets, predictions, probabilities):
+def print_model_metrics(targets, predictions, probabilities, prefix=''):
     tn, fp, fn, tp = confusion_matrix(torch.cat(targets, dim=0).cpu(),
                                       torch.cat(predictions, dim=0).cpu()).ravel()
     print(tn, fp, fn, tp)
@@ -71,7 +71,7 @@ def print_model_metrics(targets, predictions, probabilities):
 
     fpr, tpr, thresholds = roc_curve(torch.cat(targets, dim=0).cpu(),
                                      torch.cat(probabilities, dim=0).cpu())
-    plot_roc_curve(fpr, tpr)
+    plot_roc_curve(fpr, tpr, prefix=prefix)
     auc_score = roc_auc_score(torch.cat(targets, dim=0).cpu(),
                               torch.cat(probabilities, dim=0).cpu())
     print('AUC Score:', auc_score)
@@ -87,13 +87,13 @@ def print_execution_summary(classes, class_correct, class_total, start_time, end
     print('Elapsed time', duration.total_seconds(), ' seconds')
 
 
-def print_training_summary(best_accuracy, start_time, end_time, epoch_losses):
+def print_training_summary(best_accuracy, start_time, end_time, epoch_losses, prefix=''):
     print('Network with accuracy of ', best_accuracy, 'on validation data set chosen.')
     print('Finished Training')
     print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
     duration = end_time - start_time
     print('Elapsed time', duration.total_seconds(), ' seconds')
-    plot_epoch_losses(epoch_losses)
+    plot_epoch_losses(epoch_losses, prefix=prefix)
 
 
 def save_model(model, filename):
