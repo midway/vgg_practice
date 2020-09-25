@@ -28,7 +28,7 @@ def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', 
     lowest_loss_epoch = np.argmin(epoch_losses)
     plt.figure(2)
     plt.plot(epoch_losses, color=color)
-    plt.axvline(lowest_loss_epoch, 0, 1, f'Lowest Loss Epoch: {lowest_loss_epoch}')
+    plt.axvline(lowest_loss_epoch, 0, 1, label=f'Lowest Loss Epoch: {lowest_loss_epoch}')
     plt.xlabel('Epoch')
     plt.ylabel('Average loss')
     plt.title('Average loss per epoch')
