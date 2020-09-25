@@ -206,7 +206,7 @@ if args.train:
             for i, data in enumerate(Bar(dataloaders['val'])):
                 images, labels = data[0].to(device), data[1].to(device)
                 outputs = net(images)
-                probs = outputs[:, 1].detach()
+                probs = outputs.detach()
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
