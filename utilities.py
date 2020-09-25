@@ -73,3 +73,12 @@ def print_model_metrics(targets, predictions, probabilities):
                               torch.cat(probabilities, dim=0).cpu())
     print('AUC Score:', auc_score)
 
+
+def print_execution_summary(classes, class_correct, class_total, start_time, end_time):
+    for i in range(len(classes)):
+        print('Accuracy of %5s : %2d %%' % (
+            classes[i], 100 * class_correct[i] / class_total[i]))
+
+    print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
+    duration = end_time - start_time
+    print('Elapsed time', duration.total_seconds(), ' seconds')

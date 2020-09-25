@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import cv2
 from command_line_parser import parse_args
-from utilities import create_train_net
+from utilities import create_train_net, print_execution_summary
 
 args = parse_args()
 
@@ -26,7 +26,7 @@ transform = transforms.Compose(
      ])
 
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
+class_count = len(classes)
 if args.train:
     if __name__ == '__main__':
         start_time = datetime.now()
@@ -66,12 +66,12 @@ if args.train:
                 start_epoch = input_file['epoch']
                 learn_rate = input_file['learn_rate']
                 net, optimizer = create_train_net(vgg_type, device, input_file['state_dict'], input_file['optimizer'],
-                                                  learn_rate=learn_rate, num_classes=10, size=32)
+                                                  learn_rate=learn_rate, num_classes=class_count, size=32)
                 if args.batch_size:
                     print('Batch size for this model has already been set to ', batch_size, 'and will not be changed.')
             else:
                 start_epoch = 0
-                net, optimizer = create_train_net(args.vgg_type, device, learn_rate=learn_rate, num_classes=10, size=32)
+                net, optimizer = create_train_net(args.vgg_type, device, learn_rate=learn_rate, num_classes=class_count, size=32)
                 if args.batch_size:
                     batch_size = args.batch_size
 
@@ -198,7 +198,7 @@ if args.execute:
         testloader = torch.utils.data.DataLoader(testset, batch_size=1,
                                                  shuffle=True, num_workers=4)
 
-        net = VggNet(in_channels=3, num_classes=10, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
+        net = VggNet(in_channels=3, num_classes=class_count, size=32, vgg_type=input_file['vgg_type'], device=device).to(device)
         net.load_state_dict(input_file['state_dict'])
         net.eval()
         correct = 0
@@ -267,8 +267,8 @@ if args.execute:
         print('Accuracy of the network on the 10000 test images: %d %%' % (
             100 * correct / total))
 
-        class_correct = list(0. for i in range(10))
-        class_total = list(0. for i in range(10))
+        class_correct = list(0. for i in range(class_count))
+        class_total = list(0. for i in range(class_count))
         for i, data in enumerate(Bar(testloader)):
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
@@ -279,11 +279,5 @@ if args.execute:
                 class_correct[label] += c[i].item()
                 class_total[label] += 1
 
-        for i in range(10):
-            print('Accuracy of %5s : %2d %%' % (
-                classes[i], 100 * class_correct[i] / class_total[i]))
-
         end_time = datetime.now()
-        print('Completed at:', end_time.strftime('%Y-%m-%d %H:%M:%S'))
-        duration = end_time - start_time
-        print('Elapsed time', duration.total_seconds(), ' seconds')
+        print_execution_summary(classes, class_correct, class_total, start_time, end_time)
