@@ -334,7 +334,11 @@ if args.execute:
         for i, data in enumerate(Bar(dataloader)):
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
-            _, predicted = torch.max(outputs.data, 1)
+            probs = torch.sigmoid(outputs).detach()
+            predicted = []
+            for val in probs:
+                predicted.append(1 if val.item() > threshold else 0)
+            predicted = torch.Tensor(predicted).to(device)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
