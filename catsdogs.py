@@ -331,6 +331,11 @@ if args.execute:
         # exit()
         #### /GRADCAM
 
+        threshold = 0.5
+        if args.threshold:
+            if args.threshold.replace('.', '', 1).isdigit():
+                threshold = float(args.threshold)
+
         for i, data in enumerate(Bar(dataloader)):
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
@@ -354,16 +359,15 @@ if args.execute:
         for i, data in enumerate(Bar(dataloader)):
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
-            _, predicted = torch.max(outputs, 1)
-            probs = outputs[:, 1].detach()
+            probs = torch.sigmoid(outputs).detach()
+            predicted = []
+            for val in probs:
+                predicted.append(1 if val.item() > threshold else 0)
+            predicted = torch.Tensor(predicted).to(device)
             c = (predicted == labels).squeeze()
             list_of_predictions.append(predicted.cpu())
             list_of_probabilities.append(probs.cpu())
             list_of_targets.append(labels.cpu())
-            for i in range(4):
-                label = labels[i]
-                class_correct[label] += c[i].item()
-                class_total[label] += 1
 
         print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities, prefix='execution-')
 
