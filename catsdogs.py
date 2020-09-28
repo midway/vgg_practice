@@ -279,6 +279,8 @@ if args.execute:
         correct = 0
         total = 0
 
+        epoch_losses = input_file['epoch_losses']
+
         threshold = 0.5
         if args.threshold:
             if args.threshold.replace('.', '', 1).isdigit():
@@ -358,6 +360,7 @@ if args.execute:
                 100 * correct / total))
 
         print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities, threshold, prefix='execution-')
+        plot_epoch_losses(epoch_losses, prefix='execution-')
 
         end_time = datetime.now()
         print_execution_summary(classes, [correct], [total], start_time, end_time)
