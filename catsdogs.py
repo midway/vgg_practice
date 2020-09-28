@@ -53,6 +53,10 @@ if args.train:
         if torch.cuda.is_available():
             print('Cuda device count:', torch.cuda.device_count())
 
+        threshold = 0.5
+        if args.threshold:
+            if args.threshold.replace('.', '', 1).isdigit():
+                threshold = float(args.threshold)
         batch_size = 4
         epochs = 3
         learn_rate = 0.001
@@ -206,12 +210,16 @@ if args.train:
             for i, data in enumerate(Bar(dataloaders['val'])):
                 images, labels = data[0].to(device), data[1].to(device)
                 outputs = net(images)
-                probs = outputs.detach()
-                _, predicted = torch.max(outputs.data, 1)
+                probs = torch.sigmoid(outputs).detach()
+                predicted = []
+                for val in probs:
+                    predicted.append(1 if val.item() > threshold else 0)
+                predicted = torch.Tensor(predicted).to(device)
+                #_, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
                 list_of_probabilities.append(probs.cpu())
-                list_of_predictions.append(predicted.cpu())
+                list_of_predictions.append(predicted)
                 list_of_targets.append(labels.cpu())
 
             print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities, prefix='training-')

@@ -26,5 +26,6 @@ def parse_args():
                         dest='competition_size',
                         type=check_positive_integer)
     parser.add_argument('-L', '--learn-rate X', help='Learn Rate (default: 0.001)', dest='learn_rate')
-
+    parser.add_argument('-H', '--threshold X', help='Threshold for binary classification (default: 0.5)',
+                        dest='threshold')
     return parser.parse_args()
