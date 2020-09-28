@@ -260,7 +260,7 @@ if args.execute:
         if torch.cuda.is_available() and device == 'cuda':
             print('Cuda device count:', torch.cuda.device_count())
 
-        batch_size = input_file['batch_size']
+        batch_size = int(input_file['batch_size'])
         if args.batch_size:
             print('Batch size is only used when training a model.')
 
@@ -336,6 +336,10 @@ if args.execute:
             if args.threshold.replace('.', '', 1).isdigit():
                 threshold = float(args.threshold)
 
+        list_of_probabilities = []
+        list_of_targets = []
+        list_of_predictions = []
+
         for i, data in enumerate(Bar(dataloader)):
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
@@ -346,30 +350,14 @@ if args.execute:
             predicted = torch.Tensor(predicted).to(device)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-
-        print('Accuracy of the network on the test images: %d %%' % (
-                100 * correct / total))
-
-        list_of_probabilities = []
-        list_of_targets = []
-        list_of_predictions = []
-
-        class_correct = list(0. for i in range(class_count))
-        class_total = list(0. for i in range(class_count))
-        for i, data in enumerate(Bar(dataloader)):
-            images, labels = data[0].to(device), data[1].to(device)
-            outputs = net(images)
-            probs = torch.sigmoid(outputs).detach()
-            predicted = []
-            for val in probs:
-                predicted.append(1 if val.item() > threshold else 0)
-            predicted = torch.Tensor(predicted).to(device)
-            c = (predicted == labels).squeeze()
             list_of_predictions.append(predicted.cpu())
             list_of_probabilities.append(probs.cpu())
             list_of_targets.append(labels.cpu())
 
+        print('Accuracy of the network on the test images: %d %%' % (
+                100 * correct / total))
+
         print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities, prefix='execution-')
 
         end_time = datetime.now()
-        print_execution_summary(classes, class_correct, class_total, start_time, end_time)
+        print_execution_summary(classes, [correct], [total], start_time, end_time)
