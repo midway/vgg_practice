@@ -21,7 +21,8 @@ def plot_roc_curve(fpr, tpr, filename='roc_curve.png', color='orange', line_colo
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC) Curve')
     plt.legend()
-    plt.savefig(f'{prefix}{filename}')
+    plt.savefig(f'./results/{prefix}{filename}')
+    plt.close(1)
 
 
 def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', line_color='green', prefix=''):
@@ -33,8 +34,8 @@ def plot_epoch_losses(epoch_losses, filename='epoch_losses.png', color='green', 
     plt.ylabel('Average loss')
     plt.title('Average loss per epoch')
     plt.legend()
-    plt.savefig(f'{prefix}{filename}')
-
+    plt.savefig(f'./results/{prefix}{filename}')
+    plt.close(2)
 
 def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_state_dict=None, learn_rate=0.001,
                      num_classes=10, size=32):
@@ -52,29 +53,38 @@ def create_train_net(vgg_type_param, device_param, state_dict=None, optimizer_st
     return train_net, train_optimizer
 
 
-def print_model_metrics(targets, predictions, probabilities, prefix=''):
-    tn, fp, fn, tp = confusion_matrix(torch.cat(targets, dim=0).cpu(),
-                                      torch.cat(predictions, dim=0).cpu()).ravel()
-    print(tn, fp, fn, tp)
+def print_model_metrics(targets, predictions, probabilities, threshold, prefix=''):
+    with open(f'./results/{prefix}metrics.txt', 'w') as f:
+        tn, fp, fn, tp = confusion_matrix(torch.cat(targets, dim=0).cpu(),
+                                          torch.cat(predictions, dim=0).cpu()).ravel()
+        print(tn, fp, fn, tp)
 
-    ppv = tp / (tp + fp)
-    print('Positive Predictive Value:', ppv)
+        ppv = tp / (tp + fp)
+        print('Positive Predictive Value:', ppv)
+        print('Positive Predictive Value:', ppv, file=f)
 
-    npv = tn / (tn + fn)
-    print('Negative Predictive Value', npv)
+        npv = tn / (tn + fn)
+        print('Negative Predictive Value', npv)
+        print('Negative Predictive Value', npv, file=f)
 
-    specificity = tn / (tn + fp)
-    print('Specificity:', specificity)
+        specificity = tn / (tn + fp)
+        print('Specificity:', specificity)
+        print('Specificity:', specificity, file=f)
 
-    sensitivity = tp / (tp + fn)
-    print('Sensitivity:', sensitivity)
+        sensitivity = tp / (tp + fn)
+        print('Sensitivity:', sensitivity)
+        print('Sensitivity:', sensitivity, file=f)
 
-    fpr, tpr, thresholds = roc_curve(torch.cat(targets, dim=0).cpu(),
-                                     torch.cat(probabilities, dim=0).cpu())
-    plot_roc_curve(fpr, tpr, prefix=prefix)
-    auc_score = roc_auc_score(torch.cat(targets, dim=0).cpu(),
-                              torch.cat(probabilities, dim=0).cpu())
-    print('AUC Score:', auc_score)
+        fpr, tpr, thresholds = roc_curve(torch.cat(targets, dim=0).cpu(),
+                                         torch.cat(probabilities, dim=0).cpu())
+        plot_roc_curve(fpr, tpr, prefix=prefix)
+        auc_score = roc_auc_score(torch.cat(targets, dim=0).cpu(),
+                                  torch.cat(probabilities, dim=0).cpu())
+        print('AUC Score:', auc_score)
+        print('AUC Score:', auc_score, file=f)
+
+        print('Threshold:', threshold)
+        print('Threshold:', threshold, file=f)
 
 
 def print_execution_summary(classes, class_correct, class_total, start_time, end_time):

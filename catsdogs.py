@@ -3,12 +3,13 @@ from __future__ import print_function
 import itertools
 import os
 import torch.autograd
+import torchvision
 import torchvision.transforms as transforms
 import torch.nn as nn
 from torchvision import datasets
 from barbar import Bar
 from datetime import datetime
-
+import cv2
 from command_line_parser import parse_args
 from vgg import VggNet
 import matplotlib.pyplot as plt
@@ -278,59 +279,6 @@ if args.execute:
         correct = 0
         total = 0
 
-        #### GRADCAM
-
-        # img, _ = next(iter(testloader))
-
-        # get the most likely prediction of the model
-        # pred = net(img).to(device)
-        # print(pred)
-        # predMax = pred.argmax(dim=1)
-        # print(predMax)
-
-        # get the gradient of the output with respect to the parameters of the model
-        # pred[:, predMax].backward()
-        # print('Model thinks this is a', classes[predMax])
-
-        # pull the gradients out of the model
-        # gradients = net.get_activations_gradient()
-
-        # pool the gradients across the channels
-        # pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
-
-        # get the activations of the last convolutional layer
-        # activations = net.get_activations(img).detach()
-
-        # weight the channels by corresponding gradients
-        # for i in range(512):
-        #    activations[:, i, :, :] *= pooled_gradients[i]
-
-        # average the channels of the activations
-        # heatmap = torch.mean(activations, dim=1).squeeze()
-
-        # relu on top of the heatmap
-        # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
-        # heatmap = np.maximum(heatmap.cpu(), 0)
-
-        # normalize the heatmap
-        # heatmap /= torch.max(heatmap)
-
-        # draw the heatmap
-        # plt.matshow(heatmap.squeeze())
-        # plt.imsave("./data/heatmap-plot.png", heatmap.squeeze())
-        # plt.show()
-
-        # torchvision.utils.save_image(img[0],'./data/cifar-10-example.png')
-        # newImage = cv2.imread('./data/cifar-10-example.png')
-        # heatmap = cv2.resize(np.array(heatmap), (newImage.shape[1], newImage.shape[0]))
-        # heatmap = np.uint8(255 * heatmap)
-        # heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-        # superimposed_img = heatmap * .4 + newImage
-        # cv2.imwrite('./data/heatmap.jpg', heatmap)
-        # cv2.imwrite('./data/combined.jpg', superimposed_img)
-        # exit()
-        #### /GRADCAM
-
         threshold = 0.5
         if args.threshold:
             if args.threshold.replace('.', '', 1).isdigit():
@@ -339,6 +287,11 @@ if args.execute:
         list_of_probabilities = []
         list_of_targets = []
         list_of_predictions = []
+
+        image_id = 0
+
+        if not os.path.exists('./results'):
+            os.makedirs('./results')
 
         for i, data in enumerate(Bar(dataloader)):
             images, labels = data[0].to(device), data[1].to(device)
@@ -354,10 +307,57 @@ if args.execute:
             list_of_probabilities.append(probs.cpu())
             list_of_targets.append(labels.cpu())
 
+            for j, image in enumerate(images):
+                if j % 20 == 0:
+                    #### GRADCAM
+
+                    outputs[j, 0].backward(retain_graph=True)
+                    # pull the gradients out of the model
+                    gradients = net.get_activations_gradient()
+
+                    # pool the gradients across the channels
+                    pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
+
+                    # get the activations of the last convolutional layer
+                    activations = net.get_activations(images).detach()
+
+                    # weight the channels by corresponding gradients
+                    for k in range(512):
+                        activations[:, k, :, :] *= pooled_gradients[k]
+
+                    # average the channels of the activations
+                    heatmap = torch.mean(activations, dim=1).squeeze()
+                    heatmap = heatmap[j]
+
+                    # relu on top of the heatmap
+                    # expression (2) in https://arxiv.org/pdf/1610.02391.pdf
+                    heatmap = np.maximum(heatmap.cpu(), 0)
+
+                    # normalize the heatmap
+                    heatmap /= torch.max(heatmap)
+
+                    #  draw the heatmap
+                    plt.matshow(heatmap.squeeze())
+                    plt.imsave(f"./results/image-{image_id}-heatmap-plot.png", heatmap.squeeze())
+                    plt.close()
+                    # plt.show()
+
+                    torchvision.utils.save_image(images[j], f'./results/image-{image_id}-example.png')
+                    newImage = cv2.imread(f'./results/image-{image_id}-example.png')
+                    heatmap = cv2.resize(np.array(heatmap), (newImage.shape[1], newImage.shape[0]))
+                    heatmap = np.uint8(255 * heatmap)
+                    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+                    superimposed_img = heatmap * .4 + newImage
+                    cv2.imwrite(f'./results/image-{image_id}-heatmap.jpg', heatmap)
+                    cv2.imwrite(f'./results/image-{image_id}-combined.jpg', superimposed_img)
+
+                    image_id = image_id + 1
+                    #### /GRADCAM
+
         print('Accuracy of the network on the test images: %d %%' % (
                 100 * correct / total))
 
-        print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities, prefix='execution-')
+        print_model_metrics(list_of_targets, list_of_predictions, list_of_probabilities, threshold, prefix='execution-')
 
         end_time = datetime.now()
         print_execution_summary(classes, [correct], [total], start_time, end_time)
